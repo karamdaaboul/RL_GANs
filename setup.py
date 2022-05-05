@@ -1,12 +1,13 @@
-from setuptools import setup
+from distutils.core import setup
+from setuptools import find_packages
 
 setup(
-    name='thesis',
-    version='',
-    packages=['algos', 'utils', 'wrappers'],
-    url='',
-    license='',
-    author='jan',
-    author_email='',
-    description=''
+    name='rl_gans',
+    packages=find_packages(),
+    version='0.0.1',
+    description='GANS RL',
+    long_description=open('./README.md').read(),
+    author='KD',
+    zip_safe=True,
+    license='MIT'
 )
