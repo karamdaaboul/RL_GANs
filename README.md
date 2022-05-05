@@ -28,8 +28,9 @@ git clone https://github.com/anyboby/Constrained-Model-Based-Policy-Optimization
 
 ```bash
 cd RL_GANs/
-conda env create -f rl_gans.yml
+conda create -n rl_gans python=3.8
 conda activate rl_gans
+pip install -e .
 ```
 
 3.Add the new kernel to the ipython kernels
