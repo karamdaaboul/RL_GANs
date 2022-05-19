@@ -54,4 +54,30 @@ class SAC_Model(nn.Module):
         if self.critic.encoder is not None:
             for param, target_param in zip(self.critic.encoder.parameters(), self.critic_target.encoder.parameters()):
                 target_param.data.copy_(encoder_tau * param.data + (1 - encoder_tau) * target_param.data)   
+
+
+class SACAE_Model(SAC_Model):
+    def __init__(self, obs_shape, action_shape, hidden_dim, encoder_feature_dim, log_std_min, 
+                log_std_max, num_layers, num_filters, device):
+        super().__init__(obs_shape, action_shape, hidden_dim, encoder_feature_dim, log_std_min, 
+                         log_std_max, num_layers, num_filters, device)
+
+        decoder = m.Decoder(num_channels = obs_shape[0], 
+                            feature_dim = encoder_feature_dim, 
+                            num_layers = num_layers,
+                            num_filters = num_filters)
+
+        self.autoencoder = m.AutoEncoder(self.critic.encoder, decoder).to(device)
+
+
+class GANs_Model(nn.Module):
+    def __init__(self, obs_shape, z_dim, num_layers, num_filters, device):
+        super().__init__()
+        self.generator = m.Generator(num_channels = obs_shape[0],
+                                     z_dim        = z_dim,
+                                     num_layers   = num_layers,
+                                     num_filters  = num_filters).to(device)
+
+        self.discriminator = m.Discriminator(num_channels = obs_shape[0],
+                                             num_filters = num_filters).to(device)
     

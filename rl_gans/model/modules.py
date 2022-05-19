@@ -144,9 +144,6 @@ class Critic(nn.Module):
             x = self.encoder(x, detach=detach)
         return self.Q1(x, action), self.Q2(x, action)
 
-
-
-
 class Decoder(nn.Module):
     def __init__(self, num_channels, feature_dim, num_layers = 4, num_filters = 32):
         super().__init__()
@@ -172,6 +169,18 @@ class Decoder(nn.Module):
 
         obs = self.deconvs[-1](x)
         return obs
+
+
+class AutoEncoder(nn.Module):
+    def __init__(self, encoder, decoder):
+        super(AutoEncoder, self).__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+
+    def recon(self, x):
+        h = self.encoder(x)
+        recon_x = self.decoder(h)
+        return recon_x
 
 
 class Generator(nn.Module):
@@ -207,15 +216,7 @@ class Generator(nn.Module):
             final_layer: a boolean, true if it is the final layer and false otherwise 
                       (affects activation and batchnorm)
         '''
-
-        #     Steps:
-        #       1) Do a transposed convolution using the given parameters.
-        #       2) Do a batchnorm, except for the last layer.
-        #       3) Follow each batchnorm with a ReLU activation.
-        #       4) If its the final layer, use a Tanh activation after the deconvolution.
-
-        # Build the neural block
-        if not final_layer:
+        if not final_layer:# Build the neural block
             return nn.Sequential(
                 nn.ConvTranspose2d(input_channels, output_channels, kernel_size, stride),
                 nn.BatchNorm2d(output_channels),
@@ -255,11 +256,6 @@ class Discriminator(nn.Module):
             final_layer: a boolean, true if it is the final layer and false otherwise 
                       (affects activation and batchnorm)
         '''
-        #     Steps:
-        #       1) Add a convolutional layer using the given parameters.
-        #       2) Do a batchnorm, except for the last layer.
-        #       3) Follow each batchnorm with a LeakyReLU activation with slope 0.2.
-        
         # Build the neural block
         if not final_layer:
             return nn.Sequential(
@@ -280,4 +276,5 @@ class Discriminator(nn.Module):
     '''
     def forward(self, image):
         disc_pred = self.disc(image)
-        return disc_pred.view(len(disc_pred), -1)           
+        return disc_pred.view(len(disc_pred), -1)
+
