@@ -228,6 +228,25 @@ class Generator(nn.Module):
                 nn.Tanh(),
             )
 
+    def unsqueeze_noise(self, noise):
+        '''
+        Function for completing a forward pass of the generator: Given a noise tensor, 
+        returns a copy of that noise with width and height = 1 and channels = z_dim.
+        Parameters:
+            noise: a noise tensor with dimensions (n_samples, z_dim)
+        '''
+        return noise.view(len(noise), self.z_dim, 1, 1)
+
+    def forward(self, noise):
+        '''
+        Function for completing a forward pass of the generator: Given a noise tensor, 
+        returns generated images.
+        Parameters:
+            noise: a noise tensor with dimensions (n_samples, z_dim)
+        '''
+        x = self.unsqueeze_noise(noise)
+        return self.gen(x)
+
 
 class Discriminator(nn.Module):
     '''
