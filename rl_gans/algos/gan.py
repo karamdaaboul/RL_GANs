@@ -28,7 +28,7 @@ def get_noise(n_samples, z_dim, device='cpu'):
     return torch.randn(n_samples, z_dim, device=device)
 
 class GAN(object):
-    def __init__(self, model, device, action_shape, args):
+    def __init__(self, model, device, args):
         self.model = model
         self.device = device
         self.generator_update_freq     = args.generator_update_freq 
@@ -51,12 +51,14 @@ class GAN(object):
         self.model.generator.train(training)
 
 
-    def update_discriminator(self, obs, action, reward, next_obs, not_done, L, step):
-        fake_noise = get_noise(cur_batch_size, z_dim, device=device)
-        fake = self.model.gan.generator(fake_noise)
-        discriminator_fake_pred = self.model.gan.discriminator(fake.detach())
+    def update_discriminator(self, obs, batch_size, L, step):
+        z_dim   = self.model.generator.z_dim
+        
+        fake_noise = get_noise(batch_size, z_dim, device=self.device)
+        fake = self.model.generator(fake_noise)
+        discriminator_fake_pred = self.model.discriminator(fake.detach())
         discriminator_fake_loss = nn.BCEWithLogitsLoss(discriminator_fake_pred, torch.zeros_like(discriminator_fake_pred))
-        discriminator_real_pred = self.model.gan.discriminator(real)
+        discriminator_real_pred = self.model.discriminator(obs)
         discriminator_real_loss = nn.BCEWithLogitsLoss(discriminator_real_pred, torch.ones_like(discriminator_real_pred))
         discriminator_loss = (discriminator_fake_loss + discriminator_real_loss) / 2
 
@@ -64,24 +66,25 @@ class GAN(object):
         # mean_discriminator_loss += disc_loss.item() / display_step
         # Update gradients
         if step % self.log_interval == 0:
-            L.log('train_critic/loss', discriminator_loss, step)
+            L.log('train_discriminator/loss', discriminator_loss, step)
 
         # Optimize the critic
         self.discriminator_optimizer.zero_grad()
         discriminator_loss.backward(retain_graph=True)        
         self.discriminator_optimizer.step()
 
-    def update_generator(self, obs, L, step):
+    def update_generator(self, batch_size, L, step):
         # detach encoder, so we don't update it with the actor loss
-        fake_noise              = get_noise(cur_batch_size, z_dim, device=device)
-        fake                    = self.model.gan.generator(fake_noise)
-        discriminator_fake_pred = self.model.gan.discriminator(fake)
+        z_dim   = self.model.generator.z_dim
+        fake_noise              = get_noise(batch_size, z_dim, device=self.device)
+        fake                    = self.model.generator(fake_noise)
+        discriminator_fake_pred = self.model.discriminator(fake)
         generator_loss          = nn.BCEWithLogitsLoss(discriminator_fake_pred, torch.ones_like(discriminator_fake_pred))
 
         # Keep track of the average generator loss
         #mean_generator_loss += gen_loss.item() / display_step
         if step % self.log_interval == 0:
-            L.log('train_alpha/loss',generator_loss, step)
+            L.log('train_generator/loss',generator_loss, step)
 
         # Optimize the generator
         self.generator_optimizer.zero_grad()
@@ -90,16 +93,16 @@ class GAN(object):
 
 
     def update(self, replay_buffer, L, step):
-        obs, action, reward, next_obs, not_done = replay_buffer.sample()
-    
+        obs, _, _, _, _ = replay_buffer.sample()
+        batch_size = len(obs)
         #if step % self.log_interval == 0:
         #    L.log('train/batch_reward', reward.mean(), step)
 
         if step % self.discriminator_update_freq == 0:
-            self.update_discriminator(obs, action, reward, next_obs, not_done, L, step)
+            self.update_discriminator(obs,batch_size, L, step)
 
         if step % self.generator_update_freq == 0:
-            self.update_generator(obs, L, step)
+            self.update_generator(batch_size, L, step)
 
 
     def save_model(self, dir, step):
