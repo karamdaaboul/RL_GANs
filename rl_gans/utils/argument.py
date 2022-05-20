@@ -44,19 +44,33 @@ def parse_args():
     parser.add_argument('--init_temperature', default=0.1, type=float)
     parser.add_argument('--alpha_lr', default=1e-4, type=float)
     parser.add_argument('--alpha_beta', default=0.5, type=float)
+    # gan
+    parser.add_argument('--generator_update_freq', default=1, type=int)
+    parser.add_argument('--discriminator_update_freq',  default=2, type=int)
+    parser.add_argument('--generator_lr', default=1e-4, type=float)
+    parser.add_argument('--generator_beta', default=0.5, type=float)
+    parser.add_argument('--discriminator_lr', default=1e-4, type=float)
+    parser.add_argument('--discriminator_beta', default=0.5, type=float)
     ##### Algorithm-Specific Parameters
-    parser.add_argument('--agent', default='sac_state', type=str, help='curl, sacae, sac_pixel, sac_state')
+    parser.add_argument('--agent', default='gan', type=str, help='curl, sacae, sac_pixel, sac_state, gan')
     parser.add_argument('--encoder_feature_dim', default=50, type=int)
     parser.add_argument('--num_layers', default=4, type=int)
     parser.add_argument('--num_filters', default=32, type=int)
+    # misc
+    parser.add_argument('--seed', default=1, type=int)
+    parser.add_argument('--work_dir', default='.', type=str)
+    parser.add_argument('--save_tb', default=False, action='store_true')
+    parser.add_argument('--save_buffer', default=False, action='store_true')
+    parser.add_argument('--save_model', default=False, action='store_true')
+    parser.add_argument('--log_interval', default=25, type=int)
 
     args = parser.parse_args(args=[])
 
     if args.agent in ['curl']:
         args.env_image_size = 100
         args.agent_image_size = 84
-    elif args.agent in ['sacae', 'sac_pixel']:
-        args.env_image_size = 84
+    elif args.agent in ['sacae', 'sac_pixel','gan']:
+        args.env_image_size = 84,
         args.agent_image_size = 84
 
     elif args.agent in ['sac_state']:
@@ -68,3 +82,36 @@ def parse_args():
         args.num_filters = 0
 
     return args
+
+
+def random_crop(imgs, output_size):
+    """
+    Vectorized way to do random crop using sliding windows
+    and picking out random ones
+    args:
+        imgs, batch images with shape (B,C,H,W)
+    """
+    # batch size
+    n = imgs.shape[0]
+    img_size = imgs.shape[-1]
+    crop_max = img_size - output_size
+    imgs = np.transpose(imgs, (0, 2, 3, 1))
+    w1 = np.random.randint(0, crop_max, n)
+    h1 = np.random.randint(0, crop_max, n)
+    # creates all sliding windows combinations of size (output_size)
+    windows = view_as_windows(
+        imgs, (1, output_size, output_size, 1))[..., 0,:,:, 0]
+    # selects a random window for each batch element
+    cropped_imgs = windows[np.arange(n), w1, h1]
+    return cropped_imgs
+
+
+def center_crop_image(image, output_size):
+    h, w = image.shape[1:]
+    new_h, new_w = output_size, output_size
+
+    top = (h - new_h)//2
+    left = (w - new_w)//2
+
+    image = image[:, top:top + new_h, left:left + new_w]
+    return image
