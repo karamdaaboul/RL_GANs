@@ -196,11 +196,10 @@ class Generator(nn.Module):
         self.z_dim = z_dim
         self.num_layers = num_layers
         self.num_filters = num_filters
-        self.out_dim = OUT_DIM[num_layers]
         # Build the neural network
         self.layers = [self.make_gen_block(z_dim, num_filters, 3, stride=2)]
-        for _ in range(1, num_layers-1):
-            self.make_gen_block(num_filters , num_filters , kernel_size=4, stride=1)
+        for _ in range(0, num_layers-1):
+            self.layers.append(self.make_gen_block(num_filters , num_filters , kernel_size=4, stride=1))
         self.make_gen_block(num_filters, num_channels, kernel_size=4, final_layer=True)
         self.gen = nn.Sequential(*self.layers)
 
