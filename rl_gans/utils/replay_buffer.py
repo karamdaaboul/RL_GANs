@@ -81,6 +81,56 @@ class ReplayBufferStorage:
         save_episode(episode, self._replay_dir / eps_fn)
 
 
+
+
+class ReplayBufferAugmentedStorage:
+    def __init__(self, replay_dir):
+        self._replay_dir = replay_dir
+        replay_dir.mkdir(exist_ok=True)
+        self._current_episode = defaultdict(list)
+        self._preload()
+
+    def __len__(self):
+        return self._num_transitions
+
+    def add(self, state, action, reward, done, aug_state):
+        if state is not None:
+            self._current_episode['s'].append(state)
+        if action is not None:
+            self._current_episode['a'].append(action)
+        if reward is not None:
+            self._current_episode['r'].append(reward)
+        if aug_state is not None:
+            self._current_episode['s2'].append(aug_state)
+        
+        if done:
+            episode = dict()
+            episode['s']  = np.array(self._current_episode['s'], np.uint8)
+            episode['a']  = np.array(self._current_episode['a'], np.float32)
+            episode['r']  = np.array(self._current_episode['r'], np.float32)
+            episode['s2'] = np.array(self._current_episode['s2'], np.uint8)
+
+            self._current_episode = defaultdict(list)
+            self._store_episode(episode)
+
+    def _preload(self):
+        self._num_episodes = 0
+        self._num_transitions = 0
+        for fn in self._replay_dir.glob('*.npz'):
+            _, _, eps_len = fn.stem.split('_')
+            self._num_episodes += 1
+            self._num_transitions += int(eps_len)
+
+    def _store_episode(self, episode):
+        eps_idx = self._num_episodes
+        eps_len = episode_len(episode)
+        self._num_episodes += 1
+        self._num_transitions += eps_len
+        ts = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
+        eps_fn = f'{ts}_{eps_idx}_{eps_len}.npz'
+        save_episode(episode, self._replay_dir / eps_fn)
+
+
 class ReplayBufferDataset(IterableDataset):
     def __init__(self, replay_dir, max_size, num_workers, nstep, discount,
                  fetch_every, save_snapshot):
@@ -154,17 +204,18 @@ class ReplayBufferDataset(IterableDataset):
             traceback.print_exc()
         self._samples_since_last_fetch += 1
         episode = self._sample_episode()
-        idx = np.random.randint(0, episode_len(episode) - self._nstep + 1)
-        obs = episode['s'][idx]
-        action = episode['a'][idx]
-        next_obs = episode['s'][idx + self._nstep]
-        reward = np.zeros_like(episode['r'][idx])
+        idx       = np.random.randint(0, episode_len(episode) - self._nstep + 1)
+        obs       = episode['s'][idx]
+        action    = episode['a'][idx]
+        next_obs  = episode['s'][idx + self._nstep]
+        reward    = np.zeros_like(episode['r'][idx])
+        aug_state = episode['s2'][idx]
         discount = 1
         for i in range(self._nstep):
             step_reward = episode['r'][idx]
             reward += discount * step_reward
             discount *= self._discount
-        return (obs, action, reward, next_obs)
+        return (obs, action, reward, next_obs, aug_state)
 
     def __iter__(self):
         self.cnt += 1
@@ -196,67 +247,23 @@ class ReplayBuffer(object):
         not_done = not_done.to(self.device)
         
         return obs, action, reward, next_obs, not_done
+      
+
+    def sample_aug(self):
+        (obs, action, reward, next_obs,aug_state) = next(self.iter)
+        reward = torch.unsqueeze(reward, dim=-1)
+        not_done = torch.ones_like(reward)  # episode ends because of maximal step limits 
+        
+        obs = obs.float().to(self.device)
+        action = action.to(self.device)
+        reward = reward.to(self.device)
+        next_obs = next_obs.float().to(self.device)
+        aug_state = aug_state.float().to(self.device)
+        not_done = not_done.to(self.device)
+        
+        return obs, action, reward, next_obs, not_done, aug_state
+      
     
-    def sample_drq(self):
-        (obs, action, reward, next_obs) = next(self.iter)
-        reward = torch.unsqueeze(reward, dim=-1)
-        not_done = torch.ones_like(reward)  # episode ends because of maximal step limits 
-        
-        obs_aug = obs.clone()
-        next_obs_aug = next_obs.clone()
-        
-        obs = obs.float().to(self.device)
-        action = action.to(self.device)
-        reward = reward.to(self.device)
-        next_obs = next_obs.float().to(self.device)
-        not_done = not_done.to(self.device)
-
-        obs_aug = obs_aug.float().to(self.device)
-        next_obs_aug = next_obs_aug.float().to(self.device)
-
-        obs = self.aug_trans(obs)
-        next_obs = self.aug_trans(next_obs)
-
-        obs_aug = self.aug_trans(obs_aug)
-        next_obs_aug = self.aug_trans(next_obs_aug)
-        
-        return obs, action, reward, next_obs, not_done, obs_aug, next_obs_aug    
-    
-
-    def sample_atc(self):
-        (obs, action, reward, next_obs) = next(self.iter)
-        reward = torch.unsqueeze(reward, dim=-1)
-        not_done = torch.ones_like(reward)  # episode ends because of maximal step limits 
-        
-        obs = obs.float().to(self.device)
-        action = action.to(self.device)
-        reward = reward.to(self.device)
-        next_obs = next_obs.float().to(self.device)
-        not_done = not_done.to(self.device)
-
-        obs = self.aug_trans(obs)
-        next_obs = self.aug_trans(next_obs)
-        
-        return obs, action, reward, next_obs, not_done    
-
-
-    def sample_rad(self):
-        (obs, action, reward, next_obs) = next(self.iter)
-        reward = torch.unsqueeze(reward, dim=-1)
-        not_done = torch.ones_like(reward)  # episode ends because of maximal step limits 
-
-        obs = obs.float().to(self.device)
-        action = action.to(self.device)
-        reward = reward.to(self.device)
-        next_obs = next_obs.float().to(self.device)
-        not_done = not_done.to(self.device)
-
-        obs = random_crop(obs, size=self.image_size)
-        next_obs = random_crop(next_obs, size=self.image_size)
-
-        return obs, action, reward, next_obs, not_done    
-
-
     def sample_curl(self):
         (obs, action, reward, next_obs) = next(self.iter)
         reward = torch.unsqueeze(reward, dim=-1)
