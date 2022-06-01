@@ -52,17 +52,21 @@ def parse_args():
     parser.add_argument('--discriminator_lr', default=1e-4, type=float)
     parser.add_argument('--discriminator_beta', default=0.5, type=float)
     ##### Algorithm-Specific Parameters
-    parser.add_argument('--agent', default='gan', type=str, help='curl, sacae, sac_pixel, sac_state, gan')
+    parser.add_argument('--agent', default='sac', type=str, help='curl, sacae, sac_pixel, sac_state, gan')
     parser.add_argument('--encoder_feature_dim', default=50, type=int)
     parser.add_argument('--num_layers', default=4, type=int)
     parser.add_argument('--num_filters', default=32, type=int)
     # misc
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--work_dir', default='.', type=str)
-    parser.add_argument('--save_tb', default=False, action='store_true')
-    parser.add_argument('--save_buffer', default=False, action='store_true')
+    parser.add_argument('--save_tb', default=True, action='store_true')
+    parser.add_argument('--save_buffer', default=True, action='store_true')
     parser.add_argument('--save_model', default=False, action='store_true')
+    parser.add_argument('--detach_encoder', default=False, action='store_true')
     parser.add_argument('--log_interval', default=25, type=int)
+    parser.add_argument('--tag', default='', type=str)
+
+    
 
     args = parser.parse_args(args=[])
 
@@ -81,6 +85,8 @@ def parse_args():
         args.num_layers = 0
         args.num_filters = 0
 
+
+    args.image_pad = None
     return args
 
 
