@@ -23,7 +23,7 @@ class SAC(object):
         self.actor_update_freq = args.actor_update_freq
         self.critic_target_update_freq = args.critic_target_update_freq
         self.critic_tau = args.critic_tau
-        self.encoder_tau = args.critic__tau
+        self.encoder_tau = args.critic_tau
         self.image_size = args.agent_image_size
         self.log_interval = args.log_interval
         self.discount = args.discount
@@ -62,7 +62,7 @@ class SAC(object):
                 obs = center_crop_image(obs, self.image_size)
                 
         with torch.no_grad():
-            obs = torch.FloatTensor(obs).to(self.device)
+            obs = torch.FloatTensor(obs.copy()).to(self.device)
             obs = obs.unsqueeze(0)
             mu, _, _, _ = self.model.actor(
                 obs, compute_pi=False, compute_log_pi=False
@@ -75,7 +75,7 @@ class SAC(object):
                 obs = center_crop_image(obs, self.image_size)
 
         with torch.no_grad():
-            obs = torch.FloatTensor(obs).to(self.device)
+            obs = torch.FloatTensor(obs.copy()).to(self.device)
             obs = obs.unsqueeze(0)
             mu, pi, _, _ = self.model.actor(obs, compute_log_pi=False)
             return pi.cpu().data.numpy().flatten()

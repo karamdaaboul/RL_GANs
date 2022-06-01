@@ -52,14 +52,14 @@ class GAN(object):
 
 
     def update_discriminator(self, obs, batch_size, L, step):
+        criterion = nn.BCEWithLogitsLoss()
         z_dim   = self.model.generator.z_dim
-        
         fake_noise = get_noise(batch_size, z_dim, device=self.device)
         fake = self.model.generator(fake_noise)
         discriminator_fake_pred = self.model.discriminator(fake.detach())
-        discriminator_fake_loss = nn.BCEWithLogitsLoss(discriminator_fake_pred, torch.zeros_like(discriminator_fake_pred))
+        discriminator_fake_loss = criterion(discriminator_fake_pred, torch.zeros_like(discriminator_fake_pred))
         discriminator_real_pred = self.model.discriminator(obs)
-        discriminator_real_loss = nn.BCEWithLogitsLoss(discriminator_real_pred, torch.ones_like(discriminator_real_pred))
+        discriminator_real_loss = criterion(discriminator_real_pred, torch.ones_like(discriminator_real_pred))
         discriminator_loss = (discriminator_fake_loss + discriminator_real_loss) / 2
 
         # Keep track of the average discriminator loss
@@ -75,11 +75,12 @@ class GAN(object):
 
     def update_generator(self, batch_size, L, step):
         # detach encoder, so we don't update it with the actor loss
+        criterion = nn.BCEWithLogitsLoss()
         z_dim   = self.model.generator.z_dim
         fake_noise              = get_noise(batch_size, z_dim, device=self.device)
         fake                    = self.model.generator(fake_noise)
         discriminator_fake_pred = self.model.discriminator(fake)
-        generator_loss          = nn.BCEWithLogitsLoss(discriminator_fake_pred, torch.ones_like(discriminator_fake_pred))
+        generator_loss          = criterion(discriminator_fake_pred, torch.ones_like(discriminator_fake_pred))
 
         # Keep track of the average generator loss
         #mean_generator_loss += gen_loss.item() / display_step
