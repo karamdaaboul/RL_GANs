@@ -81,3 +81,24 @@ class GANs_Model(nn.Module):
         self.discriminator = m.Discriminator(num_channels = obs_shape[0],
                                              num_filters = num_filters).to(device)
     
+
+
+class AutoEncoder_Model(nn.Module):
+    def __init__(self, obs_shape, encoder_feature_dim, num_layers, num_filters, device):
+        super().__init__(obs_shape, encoder_feature_dim, num_layers, num_filters, device)
+
+
+        shared_cnn = m.SharedCNN(obs_shape = obs_shape,
+                                num_layers = num_layers,
+                                num_filters = num_filters)
+
+        encoder = m.Encoder(cnn = shared_cnn,
+                            projection= m.RLProjection(shared_cnn.out_dim, encoder_feature_dim))
+        
+
+        decoder = m.Decoder(num_channels = obs_shape[0], 
+                            feature_dim = encoder_feature_dim, 
+                            num_layers = num_layers,
+                            num_filters = num_filters)
+
+        self.autoencoder = m.AutoEncoder(encoder, decoder).to(device)
